@@ -1,0 +1,65 @@
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  padding-left: calc(6px * var(--pixel-scale));
+  padding-right: calc(6px * var(--pixel-scale));
+
+  padding-top: calc(4px * var(--pixel-scale));
+  padding-bottom: calc(4px * var(--pixel-scale));
+  width: 100%;
+}
+
+.nav {
+  display: flex;
+  gap: 1rem;
+  font-size: calc(4px * var(--pixel-scale));
+}
+
+.userArea {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.username {
+  color: var(--text-default);
+  font-size: calc(4px * var(--pixel-scale));
+}
+
+.button {
+  padding: 0.4rem 1rem;
+  border-radius: 6px;
+  background: var(--color-accent);
+  color: var(--color-bg);
+  cursor: pointer;
+  border: none;
+  font-weight: 700;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.button:hover {
+  background: var(--color-accent-alt);
+  color: var(--color-fg);
+}
+
+.partButtons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.partButton {
+  border: none;
+  font-size: calc(4px * var(--pixel-scale));
+}
+
+.activePart {
+  background: var(--foreground-hover);
+  color: var(--link-highlight);
+}
+
+.partButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
