@@ -9,12 +9,12 @@ export default function AuthCallback() {
 
   useEffect(() => {
     const finishLogin = async () => {
-      // This reads the session from Supabase after OAuth redirect
+      
       const { data: { session }, error } = await supabaseClient.auth.getSession();
 
       if (error) {
         console.error('Error getting session:', error.message);
-        router.push('/'); // fallback
+        router.push('/'); 
         return;
       }
 
@@ -24,7 +24,7 @@ export default function AuthCallback() {
         return;
       }
 
-      // redirect to previous page
+      
       const redirectTo = localStorage.getItem('redirectAfterLogin') || '/';
       localStorage.removeItem('redirectAfterLogin');
       router.push(redirectTo);
