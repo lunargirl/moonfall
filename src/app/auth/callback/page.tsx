@@ -1,37 +1,28 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { supabaseClient } from '@/lib/supabaseClient';
+import { useRouter, usePathname } from 'next/navigation';
+import { supabase } from '@/lib/supabaseClient';
 
 export default function AuthCallback() {
   const router = useRouter();
 
   useEffect(() => {
-    const finishLogin = async () => {
+    const handleRedirect = async () => {
       
-      const { data: { session }, error } = await supabaseClient.auth.getSession();
+      const { data, error } = await supabase.auth.getSession();
 
       if (error) {
         console.error('Error getting session:', error.message);
-        router.push('/'); 
         return;
       }
 
-      if (!session) {
-        console.warn('No session found. Check redirect URLs in Supabase.');
-        router.push('/');
-        return;
-      }
-
-      
-      const redirectTo = localStorage.getItem('redirectAfterLogin') || '/';
-      localStorage.removeItem('redirectAfterLogin');
-      router.push(redirectTo);
+     
+      router.replace('/'); 
     };
 
-    finishLogin();
-  }, []);
+    handleRedirect();
+  }, [router]);
 
-  return <div>Logging you in...</div>;
+  return <p>Logging you in...</p>;
 }

@@ -1,12 +1,13 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
-import { supabaseClient } from "@/lib/supabaseClient";
+import { useEffect, useState, useRef } from "react";
+import { supabase } from "@/lib/supabaseClient";
 import type { PuzzlePart } from "@/types/puzzles";
 import Markdown from "@/components/Markdown";
 import styles from "./puzzle.module.css";
 import { usePuzzle } from "@/context/PuzzleContext";
+import confetti from "canvas-confetti";
 
 export default function PuzzlePage() {
   const { story_id, puzzle_id } = useParams();
@@ -16,13 +17,17 @@ export default function PuzzlePage() {
   const [result, setResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  
+  const correctAudioRef = useRef<HTMLAudioElement>(null);
+  const wrongAudioRef = useRef<HTMLAudioElement>(null);
+
   useEffect(() => {
     const fetchData = async () => {
-      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const { data: sessionData } = await supabase.auth.getSession();
       const currentUserId = sessionData?.session?.user?.id ?? null;
       setUserId(currentUserId);
 
-      const { data: partsData } = await supabaseClient
+      const { data: partsData } = await supabase
         .from("puzzle_parts")
         .select("*")
         .eq("puzzle_id", puzzle_id)
@@ -36,7 +41,7 @@ export default function PuzzlePage() {
       puzzle.setParts(partsData);
 
       if (currentUserId) {
-        const { data: solvedData } = await supabaseClient
+        const { data: solvedData } = await supabase
           .from("submissions")
           .select("puzzle_part_id")
           .eq("user_id", currentUserId)
@@ -55,7 +60,7 @@ export default function PuzzlePage() {
         puzzle.setSolvedParts(solvedMap);
       }
 
-      const { data: puzzleMeta } = await supabaseClient
+      const { data: puzzleMeta } = await supabase
         .from("puzzles")
         .select("title")
         .eq("story_id", story_id)
@@ -69,6 +74,11 @@ export default function PuzzlePage() {
 
     fetchData();
   }, [story_id, puzzle_id]);
+
+  useEffect(() => {
+    setAnswer("");
+    setResult(null);
+  }, [puzzle.selectedPart]);
 
   if (loading) return <div>Loading puzzle...</div>;
   if (puzzle.selectedPart === null) return <div>Select a part...</div>;
@@ -90,24 +100,50 @@ export default function PuzzlePage() {
     }
 
     const correct = answer.trim() === part.solution;
+    setAnswer("");
 
     if (correct) {
-      await supabaseClient
-        .from("submissions")
-        .insert([
-          { user_id: userId, puzzle_part_id: part.id, answer, correct },
-        ]);
+     
+      await supabase.from("submissions").insert([
+        {
+          user_id: userId,
+          puzzle_part_id: part.id,
+          answer: answer,
+          correct: true,
+          puzzle_id: puzzle_id,
+        },
+      ]);
 
+      
       const nextSolved = { ...puzzle.solvedParts, [selectedPart]: true };
       puzzle.setSolvedParts(nextSolved);
+
+      
+      
       setResult("Correct!");
+
+      
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+      });
+
+      
+      correctAudioRef.current?.play();
     } else {
       setResult("Wrong!");
+      
+      wrongAudioRef.current?.play();
     }
   };
 
   return (
     <div className={styles.container}>
+     
+      <audio ref={correctAudioRef} src="/sounds/correct.mp3" />
+      <audio ref={wrongAudioRef} src="/sounds/wrong.mp3" />
+
       <div className={styles.titleRow}>
         <h1 className={styles.title}>{puzzle.title}</h1>
 
@@ -131,16 +167,19 @@ export default function PuzzlePage() {
         </p>
       )}
 
+
       {!puzzle.solvedParts[selectedPart] && (
         <>
-          <p>
-            You might want this:{" "}
-            <a href={`/${story_id}/${puzzle_id}/input`}>puzzle input</a>
-          </p>
           <input
             type="text"
             value={answer}
             onChange={(e) => setAnswer(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleSubmit();
+              }
+            }}
             placeholder="Enter answer"
             className={styles.input}
           />

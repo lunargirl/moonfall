@@ -1,48 +1,45 @@
 "use client";
 
 import Link from "next/link";
-import { supabaseClient } from "@/lib/supabaseClient";
 import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 import styles from "./header.module.css";
 import { usePuzzle } from "@/context/PuzzleContext";
 
-type HeaderProps = {
-  parts?: { part_number: number; locked?: boolean }[];
-  selectedPart?: number;
-  onSelectPart?: (partNumber: number) => void;
-};
-
-export default function Header({}: HeaderProps) {
+export default function Header() {
   const [username, setUsername] = useState<string | null>(null);
   const puzzle = usePuzzle();
 
   useEffect(() => {
-    const fetchUser = async () => {
-      const {
-        data: { session },
-      } = await supabaseClient.auth.getSession();
-      if (!session) return;
+    if (typeof window === "undefined") return;
 
-      const token = session.provider_token;
-      if (!token) return;
+  
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const user = session?.user;
+      setUsername(
+        user?.user_metadata?.user_name ??
+        user?.user_metadata?.preferred_username ??
+        null
+      );
+    });
 
-      const res = await fetch("https://api.github.com/user", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!res.ok) return;
-
-      const profile = await res.json();
-      setUsername(profile.login);
+  
+    const fetchSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      const user = data.session?.user;
+      setUsername(
+        user?.user_metadata?.user_name ??
+        user?.user_metadata?.preferred_username ??
+        null
+      );
     };
+    fetchSession();
 
-    fetchUser();
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleLogin = async () => {
-    localStorage.setItem("redirectAfterLogin", window.location.pathname);
-
-    await supabaseClient.auth.signInWithOAuth({
+    await supabase.auth.signInWithOAuth({
       provider: "github",
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
@@ -51,16 +48,14 @@ export default function Header({}: HeaderProps) {
   };
 
   const handleLogout = async () => {
-    await supabaseClient.auth.signOut();
+    await supabase.auth.signOut();
     setUsername(null);
   };
 
   return (
     <header className={styles.header}>
       <nav className={styles.nav}>
-        <Link href="/" className={styles.button}>
-          Home
-        </Link>
+        <Link href="/" className={styles.button}>Home</Link>
       </nav>
 
       {puzzle.parts.length > 0 && (
@@ -73,9 +68,7 @@ export default function Header({}: HeaderProps) {
             return (
               <button
                 key={p.part_number}
-                className={`${styles.partButton} ${styles.button} ${
-                  p.part_number === puzzle.selectedPart ? styles.activePart : ""
-                }`}
+                className={`${styles.partButton} ${styles.button} ${p.part_number === puzzle.selectedPart ? styles.activePart : ""}`}
                 onClick={() => puzzle.setSelectedPart(p.part_number)}
                 disabled={locked}
               >

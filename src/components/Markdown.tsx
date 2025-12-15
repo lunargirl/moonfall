@@ -28,9 +28,7 @@ export default function Markdown({ content }: { content: string }) {
           code: ({ children }) => <code>{children}</code>,
           pre: ({ children }) => <pre className="code-block">{children}</pre>,
           span: ({ children, className }) => {
-            if (className === "accent")
-              return <span className="accent">{children}</span>;
-            return <span>{children}</span>;
+            return <span className={className}>{children}</span>;
           },
         }}
       >

@@ -1,80 +1,94 @@
-import StoryIcon from "@/components/Icon/Story-Icon";
-import { createSupabaseServerClient } from "@/lib/supabaseServer";
+"use client";
 
+import StoryIcon from "@/components/Icon/Story-Icon";
+import { supabase } from "@/lib/supabaseClient";
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import type { PuzzlePart, PuzzleGroup } from "@/types/puzzles";
 import type { Submission } from "@/types/submissions";
 
-type PageProps = {
-  params: {
-    story_id: string;
-  };
-};
+export default function StoryPage() {
+  const params = useParams(); // <-- use this hook for client components
+  const story_id = params.story_id; // safe now
+  const [userId, setUserId] = useState<string | null>(null);
+  const [parts, setParts] = useState<PuzzlePart[]>([]);
+  const [solvedPartIds, setSolvedPartIds] = useState<Set<string>>(new Set());
+  const [puzzles, setPuzzles] = useState<PuzzleGroup[]>([]);
+  const [loading, setLoading] = useState(true);
 
-export default async function StoryPage({ params }: { params: Promise<{ story_id: string }> }) {
-  const { story_id } = await params;
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
 
-  const supabaseServer = await createSupabaseServerClient();
+      
+      const { data: sessionData } = await supabase.auth.getSession();
+      const currentUserId = sessionData?.session?.user?.id ?? null;
+      setUserId(currentUserId);
 
-  const {
-    data: { user },
-  } = await supabaseServer.auth.getUser();
+      
+      const { data: partsData, error: partsError } = await supabase
+        .from("puzzle_parts")
+        .select("id, puzzle_id, part_number, story_id")
+        .eq("story_id", story_id);
 
-  // fetch puzzle parts
-  const { data: partsData, error: partsError } = await supabaseServer
-    .from("puzzle_parts")
-    .select("id, puzzle_id, part_number")
-    .eq("story_id", story_id);
-
-  if (partsError || !partsData) {
-    console.error(partsError);
-    return <div>Failed to load story</div>;
-  }
-
-  const parts = partsData as PuzzlePart[];
-  const partIds = parts.map((p) => p.id);
-
-  // fetch solved submissions for user
-  let solvedPartIds = new Set<string>();
-  if (user && partIds.length > 0) {
-    const { data: submissions } = await supabaseServer
-      .from("submissions")
-      .select("puzzle_part_id")
-      .eq("correct", true)
-      .eq("user_id", user.id)
-      .in("puzzle_part_id", partIds);
-
-    solvedPartIds = new Set(
-      (submissions ?? []).map((s: Submission) => s.puzzle_part_id)
-    );
-  }
-
-  // fetch puzzle titles from puzzles table
-  const puzzleIds = Array.from(new Set(parts.map((p) => p.puzzle_id)));
-  const { data: puzzleMeta } = await supabaseServer
-    .from("puzzles")
-    .select("puzzle_id, title")
-    .in("puzzle_id", puzzleIds);
-
-  const titleMap = new Map<string, string>();
-  puzzleMeta?.forEach((p) => titleMap.set(p.puzzle_id, p.title));
-
-  // group parts by puzzle
-  const puzzles = Object.values(
-    parts.reduce((acc, part) => {
-      if (!acc[part.puzzle_id]) {
-        acc[part.puzzle_id] = {
-          puzzle_id: part.puzzle_id,
-          title: titleMap.get(part.puzzle_id) ?? "Puzzle",
-          parts: {},
-        } satisfies PuzzleGroup;
+      if (partsError || !partsData) {
+        console.error(partsError);
+        setLoading(false);
+        return;
       }
-      acc[part.puzzle_id].parts[part.part_number] = part;
-      return acc;
-    }, {} as Record<string, PuzzleGroup>)
-  );
+
+      setParts(partsData as unknown as PuzzlePart[]);
+
+      
+      let solvedIds = new Set<string>();
+      if (currentUserId && partsData.length > 0) {
+        const partIds = partsData.map((p) => p.id);
+        const { data: submissions } = await supabase
+          .from("submissions")
+          .select("puzzle_part_id")
+          .eq("correct", true)
+          .eq("user_id", currentUserId)
+          .in("puzzle_part_id", partIds);
+
+        solvedIds = new Set((submissions ?? []).map((s: Submission) => s.puzzle_part_id));
+        setSolvedPartIds(solvedIds);
+      }
+
+      
+      const puzzleIds = Array.from(new Set(partsData.map((p) => p.puzzle_id)));
+      const { data: puzzleMeta } = await supabase
+        .from("puzzles")
+        .select("puzzle_id, title")
+        .in("puzzle_id", puzzleIds);
+
+      const titleMap = new Map<string, string>();
+      puzzleMeta?.forEach((p) => titleMap.set(p.puzzle_id, p.title));
+
+      
+      const grouped: Record<string, PuzzleGroup> = {};
+      (partsData as unknown as PuzzlePart[]).forEach((part) => {
+        if (!grouped[part.puzzle_id]) {
+          grouped[part.puzzle_id] = {
+            puzzle_id: part.puzzle_id,
+            title: titleMap.get(part.puzzle_id) ?? "Puzzle",
+            parts: {},
+          } satisfies PuzzleGroup;
+        }
+        grouped[part.puzzle_id].parts[part.part_number] = part;
+      });
+
+      setPuzzles(Object.values(grouped));
+      setLoading(false);
+    };
+
+    if (story_id) fetchData();
+  }, [story_id]);
 
   const badgeIfSolved = (part?: PuzzlePart, badge?: string) =>
     part && solvedPartIds.has(part.id) ? badge : undefined;
+
+  if (!story_id) return <div>Invalid story</div>;
+  if (loading) return <div>Loading story...</div>;
 
   return (
     <div className="iconGrid">

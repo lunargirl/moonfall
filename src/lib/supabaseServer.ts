@@ -1,20 +1,18 @@
-import { createServerClient } from "@supabase/ssr";
-import { cookies as nextCookies } from "next/headers";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+export async function createSupabaseServerClient(): Promise<SupabaseClient> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-export async function createSupabaseServerClient() {
-  const cookieStore = await nextCookies();
+  const cookieStore = cookies();
+  const accessToken = (await cookieStore).get("sb-access-token")?.value;
 
-  return createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll().map(c => ({ name: c.name, value: c.value }));
-      },
-      setAll(cookies: { name: string; value: string }[]) {
-        cookies.forEach(c => cookieStore.set(c));
-      },
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    global: {
+      headers: accessToken
+        ? { Authorization: `Bearer ${accessToken}` }
+        : undefined,
     },
   });
 }

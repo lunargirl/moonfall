@@ -88,7 +88,7 @@ code {
 
 p {
   max-width: 105ch;
-  margin-bottom: .5em;
+  margin-bottom: 0.5em;
 }
 
 .dialogue {
@@ -103,6 +103,9 @@ p {
 }
 
 .action {
-  /* font-style: italic; */
   color: var(--color-accent-alt);
+}
+
+.ital {
+  font-style: italic;
 }
